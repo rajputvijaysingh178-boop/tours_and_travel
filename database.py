@@ -1,6 +1,7 @@
 from pymongo import MongoClient
 from config import settings
 
+
 _client: MongoClient | None = None
 
 
@@ -38,7 +39,26 @@ def disconnect() -> None:
         _client = None
 
 
-
 users_collection = get_collection("users")
 customers_collection = get_collection("customers")
 sessions_collection = get_collection("sessions")
+
+vehicles_collection = get_collection("vehicles")
+drivers_collection = get_collection("drivers")
+guides_collection = get_collection("guides")
+transport_assignments_collection = get_collection(
+    "transport_assignments"
+)
+tour_assignments_collection = get_collection(
+    "tour_assignments"
+)
+
+bookings_collection = get_collection("bookings")
+passengers_collection = get_collection("passengers")
+payments_collection = get_collection("payments")
+invoices_collection = get_collection("invoices")
+refunds_collection = get_collection("refunds")
+
+packages_collection = get_collection("packages")
+departures_collection = get_collection("departures")
+itineraries_collection = get_collection("itineraries")

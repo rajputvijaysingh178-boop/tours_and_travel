@@ -11,6 +11,11 @@ from routes.transportass_routes import router as transportass_router
 from routes.guide_routes import router as guide_router 
 from routes.driver_routes import router as driver_router
 from routes.vehicle_routes import router as vehicle_router 
+<<<<<<< HEAD
+=======
+from routes.package_routes import router as package_router
+from routes.itinerary_routes import router as itinerary_router
+>>>>>>> origin/anil
 
 app = FastAPI(title="Travel Management System")
 
@@ -25,8 +30,18 @@ app.include_router(transportass_router)
 app.include_router(guide_router)
 app.include_router(driver_router)
 app.include_router(vehicle_router)
+<<<<<<< HEAD
 
 
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
+=======
+app.include_router(package_router)
+app.include_router(itinerary_router)
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"
+            }
+>>>>>>> origin/anil
