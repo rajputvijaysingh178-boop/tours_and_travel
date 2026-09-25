@@ -1,20 +1,7 @@
-<<<<<<< HEAD
-from fastapi import APIRouter
-
-router = APIRouter(prefix="/transport-assignments",tags=["Transport Assignments"])
-
-@router.post("")
-def create_transport_assignment():
-    pass
-
-@router.get("/{assignment_id}")
-def get_transport_assignment(assignment_id: str):
-    pass
-=======
 from fastapi import APIRouter, HTTPException
 
-from schemas.transportassi_schema import TransportAssignmentSchema
-from services.transportass_service import (
+from schemas.transport_assignment_schema import TransportAssignmentSchema
+from services.transport_assignment_service import (
     create_transport_assignment,
     get_transport_assignment
 )
@@ -48,4 +35,3 @@ def get_transport_assignment_route(
             status_code=404,
             detail=str(e)
         )
->>>>>>> origin/anil

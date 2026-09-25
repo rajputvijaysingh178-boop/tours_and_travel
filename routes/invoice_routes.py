@@ -1,10 +1,3 @@
-<<<<<<< HEAD
-from fastapi import APIRouter
-router = APIRouter(prefix="/bookings", tags=["Invoice"])
-@router.get("/{booking_id}/invoice")
-def get_invoice(booking_id: str):
-    pass
-=======
 from fastapi import APIRouter, HTTPException
 
 from schemas.invoice_schema import InvoiceResponseSchema
@@ -31,4 +24,3 @@ def get_invoice_route(
             status_code=404,
             detail=str(e)
         )
->>>>>>> origin/anil

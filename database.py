@@ -62,3 +62,6 @@ refunds_collection = get_collection("refunds")
 packages_collection = get_collection("packages")
 departures_collection = get_collection("departures")
 itineraries_collection = get_collection("itineraries")
+
+hotels_collection = get_collection("hotels")
+hotel_rooms_collection = get_collection("hotel_rooms")
