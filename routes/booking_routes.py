@@ -7,14 +7,10 @@ from services.booking_service import (
     confirm_booking,
     cancel_booking
 )
-
-
 router = APIRouter(
     prefix="/bookings",
     tags=["Bookings"]
 )
-
-
 @router.post("")
 def create_booking_route(
     customer_id: str,
@@ -28,8 +24,6 @@ def create_booking_route(
         passenger_count,
         total_amount
     )
-
-
 @router.get("")
 def get_bookings_route(
     customer_id: str
@@ -43,6 +37,7 @@ def get_booking_route(
 ):
     try:
         return get_booking(booking_id)
+
     except ValueError as e:
         raise HTTPException(
             status_code=404,
@@ -56,6 +51,7 @@ def confirm_booking_route(
 ):
     try:
         return confirm_booking(booking_id)
+
     except ValueError as e:
         raise HTTPException(
             status_code=404,
@@ -73,6 +69,7 @@ def cancel_booking_route(
             booking_id,
             reason
         )
+
     except ValueError as e:
         raise HTTPException(
             status_code=404,
