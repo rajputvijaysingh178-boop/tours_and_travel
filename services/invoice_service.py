@@ -1,20 +1,34 @@
 from datetime import datetime, timezone
 
+from bson import ObjectId
+from bson.errors import InvalidId
+
 from database import invoices_collection, bookings_collection
 
 
 def get_invoice(booking_id: str):
+
+    # Validate booking ID
+    try:
+        object_id = ObjectId(booking_id)
+    except InvalidId:
+        raise ValueError("Invalid booking ID") from None
+
+    # Find booking
     booking = bookings_collection.find_one({
-        "_id": booking_id
+        "_id": object_id
     })
 
+    if not booking:
+        raise ValueError("Booking not found")
+
+    # Find existing invoice
     invoice = invoices_collection.find_one({
         "booking_id": booking_id
     })
 
+    # Create invoice if it doesn't exist
     if not invoice:
-        if not booking:
-            raise ValueError("Booking not found")
 
         invoice = {
             "booking_id": booking_id,
@@ -27,6 +41,7 @@ def get_invoice(booking_id: str):
         }
 
         result = invoices_collection.insert_one(invoice)
+
         invoice["invoice_id"] = str(result.inserted_id)
 
     else:

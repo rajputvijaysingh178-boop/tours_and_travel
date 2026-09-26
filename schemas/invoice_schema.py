@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel
 
 
@@ -6,5 +7,5 @@ class InvoiceResponseSchema(BaseModel):
     booking_id: str
     invoice_number: str
     amount: float
-    generated_at: str
+    generated_at: datetime
     status: str

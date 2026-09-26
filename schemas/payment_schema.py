@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 class PaymentCreateSchema(BaseModel):
     booking_id: str
+    payment_reference: str
     amount: float
 
 
