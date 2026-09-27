@@ -61,7 +61,7 @@ def login_user(
     email: str,
     password: str,
 ):
-    # Find user
+   
     user = users_collection.find_one(
         {"email": email}
     )
@@ -69,11 +69,11 @@ def login_user(
     if not user:
         raise ValueError("Invalid email or password")
 
-    # Check whether account is active
+    
     if not user.get("is_active", True):
         raise ValueError("User account is inactive")
 
-    # Verify password
+    
     if not verify_password(
         password,
         user["password_hash"],
@@ -82,7 +82,7 @@ def login_user(
 
     user_id = str(user["_id"])
 
-    # Create access token
+    
     access_token = create_jwt_token(
         user_id=user_id,
         token_type="access",
@@ -91,7 +91,7 @@ def login_user(
         ),
     )
 
-    # Create refresh token
+    
     refresh_token = create_jwt_token(
         user_id=user_id,
         token_type="refresh",
