@@ -16,10 +16,11 @@ from routes.vehicle_routes import router as vehicle_router
 from routes.package_routes import router as package_router
 from routes.itinerary_routes import router as itinerary_router
 from routes.hotel_routes import router as hotel_router
-
-
+from routes.trip_cart_routes import router as trip_cart_router
+from routes.activity_routes import router as activity_router
+from routes.inventory_hold_routes import router as inventory_hold_router
+from routes.payment_order_routes import router as payment_order_router
 app = FastAPI()
-
 
 # CORS Configuration
 app.add_middleware(
@@ -50,6 +51,10 @@ app.include_router(package_router)
 app.include_router(itinerary_router)
 app.include_router(hotel_router)
 app.include_router(departure_router)
+app.include_router(trip_cart_router)
+app.include_router(activity_router)
+app.include_router(inventory_hold_router)
+app.include_router(payment_order_router)
 
 
 @app.get("/health")

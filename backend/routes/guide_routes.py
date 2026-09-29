@@ -1,12 +1,16 @@
 from fastapi import APIRouter, HTTPException
 
-from schemas.guide_schema import GuideCreateSchema
+from schemas.guide_schema import (
+    GuideCreateSchema,
+    GuideUpdateSchema,
+)
 
 from services.guide_service import (
     create_guide,
-    get_available_guides,
-    assign_guide,
-    get_guide_tours
+    get_guides,
+    get_guide,
+    update_guide,
+    delete_guide,
 )
 
 
@@ -17,25 +21,29 @@ router = APIRouter(
 
 
 @router.post("")
-def create_guide_route(data: GuideCreateSchema):
-    return create_guide(data)
-
-
-@router.get("/available")
-def get_available_guides_route():
-    return get_available_guides()
-
-
-@router.post("/{guide_id}/assign")
-def assign_guide_route(
-    guide_id: str,
-    departure_id: str
+def create_guide_route(
+    data: GuideCreateSchema
 ):
     try:
-        return assign_guide(
-            guide_id,
-            departure_id
+        return create_guide(data)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
         )
+
+
+@router.get("")
+def get_guides_route(
+    destination_id: str | None = None
+):
+    return get_guides(destination_id)
+
+
+@router.get("/{guide_id}")
+def get_guide_route(guide_id: str):
+    try:
+        return get_guide(guide_id)
     except ValueError as e:
         raise HTTPException(
             status_code=404,
@@ -43,8 +51,31 @@ def assign_guide_route(
         )
 
 
-@router.get("/{guide_id}/tours")
-def get_guide_tours_route(
+@router.put("/{guide_id}")
+def update_guide_route(
+    guide_id: str,
+    data: GuideUpdateSchema
+):
+    try:
+        return update_guide(
+            guide_id,
+            data
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
+
+
+@router.delete("/{guide_id}")
+def delete_guide_route(
     guide_id: str
 ):
-    return get_guide_tours(guide_id)
+    try:
+        return delete_guide(guide_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
+        )

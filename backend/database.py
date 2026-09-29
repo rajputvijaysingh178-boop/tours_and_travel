@@ -8,6 +8,12 @@ _client: MongoClient | None = None
 def connect() -> None:
     global _client
 
+    if _client is not None:
+        return
+
+    if not settings.MONGO_URI:
+        raise RuntimeError("MONGO_URI is not configured.")
+
     _client = MongoClient(
         settings.MONGO_URI,
         serverSelectionTimeoutMS=5000
@@ -17,6 +23,8 @@ def connect() -> None:
 
 
 def get_client() -> MongoClient:
+    global _client
+
     if _client is None:
         connect()
 
@@ -39,6 +47,7 @@ def disconnect() -> None:
         _client = None
 
 
+# Existing collections
 users_collection = get_collection("users")
 customers_collection = get_collection("customers")
 sessions_collection = get_collection("sessions")
@@ -65,3 +74,12 @@ itineraries_collection = get_collection("itineraries")
 
 hotels_collection = get_collection("hotels")
 hotel_rooms_collection = get_collection("hotel_rooms")
+
+
+# New TravelEase collections
+destinations_collection = get_collection("destinations")
+activities_collection = get_collection("activities")
+trip_carts_collection = get_collection("trip_carts")
+inventory_holds_collection = get_collection("inventory_holds")
+payment_orders_collection = get_collection("payment_orders")
+vouchers_collection = get_collection("vouchers")

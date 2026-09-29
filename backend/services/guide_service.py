@@ -1,15 +1,52 @@
-from database import guides_collection, tour_assignments_collection
 from bson import ObjectId
+from bson.errors import InvalidId
+
+from database import (
+    guides_collection,
+    destinations_collection,
+)
 
 
-def create_guide(guide_data):
+def _object_id(value: str):
+    try:
+        return ObjectId(value)
+    except InvalidId:
+        raise ValueError("Invalid ID")
+
+
+def _serialize(guide: dict):
+    return {
+        "guide_id": str(guide["_id"]),
+        "destination_id": guide.get("destination_id"),
+        "name": guide.get("name", ""),
+        "bio": guide.get("bio", ""),
+        "languages": guide.get("languages", []),
+        "experience_years": guide.get(
+            "experience_years", 0
+        ),
+        "fee": guide.get("fee", 0),
+        "images": guide.get("images", []),
+        "status": guide.get("status", "active"),
+    }
+
+
+def create_guide(data):
+    destination = destinations_collection.find_one({
+        "_id": _object_id(data.destination_id)
+    })
+
+    if not destination:
+        raise ValueError("Destination not found")
+
     guide = {
-        "name": guide_data.name,
-        "phone": guide_data.phone,
-        "languages": guide_data.languages,
-        "destination_expertise": guide_data.destination_expertise,
-        "availability": guide_data.availability,
-        "workload": guide_data.workload
+        "destination_id": data.destination_id,
+        "name": data.name,
+        "bio": data.bio,
+        "languages": data.languages,
+        "experience_years": data.experience_years,
+        "fee": data.fee,
+        "images": data.images,
+        "status": data.status,
     }
 
     result = guides_collection.insert_one(guide)
@@ -20,68 +57,88 @@ def create_guide(guide_data):
     }
 
 
-def get_available_guides():
-    guides = guides_collection.find({
-        "availability": True
-    })
+def get_guides(destination_id=None):
+    query = {
+        "status": "active"
+    }
 
-    result = []
+    if destination_id:
+        query["destination_id"] = destination_id
 
-    for guide in guides:
-        result.append({
-            "guide_id": str(guide["_id"]),
-            "name": guide["name"],
-            "phone": guide["phone"],
-            "languages": guide["languages"],
-            "destination_expertise": guide["destination_expertise"],
-            "availability": guide["availability"],
-            "workload": guide["workload"]
-        })
+    guides = guides_collection.find(query)
 
-    return result
+    return [
+        _serialize(guide)
+        for guide in guides
+    ]
 
 
-def assign_guide(guide_id, departure_id):
+def get_guide(guide_id: str):
     guide = guides_collection.find_one({
-        "_id": ObjectId(guide_id)
+        "_id": _object_id(guide_id)
     })
 
     if not guide:
         raise ValueError("Guide not found")
 
-    if not guide["availability"]:
-        raise ValueError("Guide is not available")
+    return _serialize(guide)
 
-    assignment = {
-        "guide_id": guide_id,
-        "departure_id": departure_id
-    }
 
-    tour_assignments_collection.insert_one(assignment)
+def update_guide(guide_id: str, data):
+    object_id = _object_id(guide_id)
+
+    guide = guides_collection.find_one({
+        "_id": object_id
+    })
+
+    if not guide:
+        raise ValueError("Guide not found")
+
+    update_data = data.model_dump(
+        exclude_none=True
+    )
+
+    if not update_data:
+        raise ValueError(
+            "No fields provided for update"
+        )
+
+    if "destination_id" in update_data:
+        destination = destinations_collection.find_one({
+            "_id": _object_id(
+                update_data["destination_id"]
+            )
+        })
+
+        if not destination:
+            raise ValueError(
+                "Destination not found"
+            )
 
     guides_collection.update_one(
-        {"_id": ObjectId(guide_id)},
-        {"$set": {"availability": False}}
+        {"_id": object_id},
+        {"$set": update_data}
+    )
+
+    return get_guide(guide_id)
+
+
+def delete_guide(guide_id: str):
+    object_id = _object_id(guide_id)
+
+    guide = guides_collection.find_one({
+        "_id": object_id
+    })
+
+    if not guide:
+        raise ValueError("Guide not found")
+
+    guides_collection.update_one(
+        {"_id": object_id},
+        {"$set": {"status": "deleted"}}
     )
 
     return {
-        "message": "Guide assigned successfully",
-        "guide_id": guide_id
+        "guide_id": guide_id,
+        "message": "Guide deleted successfully"
     }
-
-
-def get_guide_tours(guide_id):
-    tours = tour_assignments_collection.find({
-        "guide_id": guide_id
-    })
-
-    result = []
-
-    for tour in tours:
-        result.append({
-            "assignment_id": str(tour["_id"]),
-            "guide_id": tour["guide_id"],
-            "departure_id": tour["departure_id"]
-        })
-
-    return result
