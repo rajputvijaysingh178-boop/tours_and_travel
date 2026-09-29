@@ -7,53 +7,77 @@ from services.booking_service import (
     get_bookings,
     get_booking,
     confirm_booking,
-    cancel_booking)
+    cancel_booking
+)
+
 
 router = APIRouter(
     prefix="/bookings",
-    tags=["Bookings"])
+    tags=["Bookings"]
+)
 
 
 @router.post("")
 def create_booking_route(
-    departure_id: str,
+    package_id: str,
+    travel_date: str,
     passenger_count: int,
-    current_user: dict = Depends(get_current_user)):
+    current_user: dict = Depends(get_current_user)
+):
     try:
         return create_booking(
             current_user["id"],
-            departure_id,
-            passenger_count)
+            package_id,
+            travel_date,
+            passenger_count
+        )
+
     except ValueError as e:
         raise HTTPException(
             status_code=400,
-            detail=str(e))
+            detail=str(e)
+        )
 
 
 @router.get("")
 def get_bookings_route(
-    current_user: dict = Depends(get_current_user)):
-    return get_bookings(current_user["id"])
+    current_user: dict = Depends(get_current_user)
+):
+    return get_bookings(
+        current_user["id"]
+    )
 
 
 @router.get("/{booking_id}")
-def get_booking_route(booking_id: str):
+def get_booking_route(
+    booking_id: str
+):
     try:
-        return get_booking(booking_id)
+        return get_booking(
+            booking_id
+        )
+
     except ValueError as e:
         raise HTTPException(
             status_code=404,
-            detail=str(e))
+            detail=str(e)
+        )
 
 
 @router.patch("/{booking_id}/confirm")
-def confirm_booking_route(booking_id: str):
+def confirm_booking_route(
+    booking_id: str
+):
     try:
-        return confirm_booking(booking_id)
+        return confirm_booking(
+            booking_id
+        )
+
     except ValueError as e:
         raise HTTPException(
             status_code=404,
-            detail=str(e))
+            detail=str(e)
+        )
 
 
 @router.post("/{booking_id}/cancel")
@@ -62,7 +86,11 @@ def cancel_booking_route(
     reason: str
 ):
     try:
-        return cancel_booking(booking_id, reason)
+        return cancel_booking(
+            booking_id,
+            reason
+        )
+
     except ValueError as e:
         raise HTTPException(
             status_code=404,

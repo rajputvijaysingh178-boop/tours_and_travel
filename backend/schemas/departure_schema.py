@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 class DepartureCreateSchema(BaseModel):
     package_id: str
-    start_date: str
+    start_date: str | None = None
     end_date: str
     capacity: int
     status: str

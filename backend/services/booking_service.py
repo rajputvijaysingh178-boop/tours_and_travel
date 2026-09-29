@@ -12,31 +12,52 @@ from database import (
 
 def create_booking(
     customer_id: str,
-    departure_id: str,
+    package_id: str,
+    travel_date: str,
     passenger_count: int
 ):
     if passenger_count <= 0:
         raise ValueError("Passenger count must be greater than 0")
 
-    try:
-        departure_object_id = ObjectId(departure_id)
-    except InvalidId:
-        raise ValueError("Invalid departure ID")
+    if not travel_date:
+        raise ValueError("Travel date is required")
 
+    # Validate package ID
+    try:
+        package_object_id = ObjectId(package_id)
+    except InvalidId:
+        raise ValueError("Invalid package ID")
+
+    # Find package
+    package = packages_collection.find_one({
+        "_id": package_object_id
+    })
+
+    if not package:
+        raise ValueError("Package not found")
+
+    # Find a departure/capacity record linked to this package
     departure = departures_collection.find_one({
-        "_id": departure_object_id
+        "package_id": package_id
     })
 
     if not departure:
-        raise ValueError("Departure not found")
+        raise ValueError(
+            "No departure/capacity is configured for this package"
+        )
 
-    if departure.get("status") != "scheduled":
-        raise ValueError("This departure is not available")
+    capacity = departure.get(
+        "capacity",
+        package.get("max_passengers", 0)
+    )
 
-    capacity = departure.get("capacity", 0)
+    if capacity <= 0:
+        raise ValueError("No passenger capacity available")
 
+    # Check bookings for THIS package and THIS selected date
     existing_bookings = bookings_collection.find({
-        "departure_id": departure_id,
+        "package_id": package_id,
+        "travel_date": travel_date,
         "booking_status": {
             "$in": ["pending", "confirmed"]
         }
@@ -48,24 +69,12 @@ def create_booking(
     )
 
     if booked_passengers + passenger_count > capacity:
-        raise ValueError("Not enough seats available")
+        available_seats = capacity - booked_passengers
 
-    package_id = departure.get("package_id")
-
-    if not package_id:
-        raise ValueError("Package not linked to departure")
-
-    try:
-        package_object_id = ObjectId(package_id)
-    except InvalidId:
-        raise ValueError("Invalid package ID")
-
-    package = packages_collection.find_one({
-        "_id": package_object_id
-    })
-
-    if not package:
-        raise ValueError("Package not found")
+        raise ValueError(
+            f"Not enough seats available. "
+            f"Only {available_seats} seats remaining."
+        )
 
     base_price = package.get("base_price", 0)
 
@@ -73,19 +82,34 @@ def create_booking(
 
     booking = {
         "customer_id": customer_id,
-        "departure_id": departure_id,
+        "package_id": package_id,
+
+        # Customer-selected date
+        "travel_date": travel_date,
+
+        # Kept internally for compatibility with the existing system
+        "departure_id": str(departure["_id"]),
+
         "passenger_count": passenger_count,
         "total_amount": total_amount,
+
         "booking_status": "pending",
         "payment_status": "pending",
+
         "cancellation_details": None,
-        "created_at": datetime.now(timezone.utc).replace(tzinfo=None)
+
+        "created_at": datetime.now(
+            timezone.utc
+        ).replace(tzinfo=None)
     }
 
     result = bookings_collection.insert_one(booking)
 
     return {
         "booking_id": str(result.inserted_id),
+        "package_id": package_id,
+        "travel_date": travel_date,
+        "passenger_count": passenger_count,
         "total_amount": total_amount,
         "message": "Booking created successfully"
     }
@@ -101,6 +125,7 @@ def get_bookings(customer_id: str):
     for booking in bookings:
         booking["booking_id"] = str(booking["_id"])
         del booking["_id"]
+
         result.append(booking)
 
     return result
@@ -140,7 +165,11 @@ def confirm_booking(booking_id: str):
 
     bookings_collection.update_one(
         {"_id": object_id},
-        {"$set": {"booking_status": "confirmed"}}
+        {
+            "$set": {
+                "booking_status": "confirmed"
+            }
+        }
     )
 
     return {

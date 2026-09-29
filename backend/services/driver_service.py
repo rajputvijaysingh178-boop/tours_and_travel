@@ -10,3 +10,8 @@ def create_driver(driver_data):
     return {
         "driver_id": str(result.inserted_id),
         "message": "Driver created successfully"}
+    
+def get_drivers():
+    drivers = list(drivers_collection.find({}, {"_id": 0}))
+
+    return drivers
