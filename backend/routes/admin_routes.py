@@ -239,7 +239,11 @@ def upload_image(file: UploadFile = File(...)):
             resource_type="image",
         )
     except Exception as error:
-        raise HTTPException(status_code=502, detail="Cloudinary upload failed") from error
+        print(f"Cloudinary upload error: {type(error).__name__}: {error}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Cloudinary upload failed: {type(error).__name__}"
+        )
     return {
         "url": uploaded["secure_url"],
         "public_id": uploaded["public_id"],
