@@ -14,6 +14,18 @@ class HotelCreateSchema(BaseModel):
     status: str = "draft"
 
 
+class HotelUpdateSchema(BaseModel):
+    name: Optional[str] = None
+    destination_id: Optional[str] = None
+    description: Optional[str] = None
+    location: Optional[str] = None
+    contact_details: Optional[str] = None
+    star_rating: Optional[float] = Field(default=None, ge=1, le=5)
+    amenities: Optional[List[str]] = None
+    images: Optional[List[str]] = None
+    status: Optional[str] = None
+
+
 class HotelResponseSchema(BaseModel):
     hotel_id: str
     name: str
@@ -35,6 +47,16 @@ class HotelRoomCreateSchema(BaseModel):
     images: List[str] = []
     total_units: int = Field(gt=0)
     status: str = "active"
+
+
+class HotelRoomUpdateSchema(BaseModel):
+    room_type: Optional[str] = None
+    description: Optional[str] = None
+    capacity: Optional[int] = Field(default=None, gt=0, le=5)
+    nightly_rate: Optional[float] = Field(default=None, gt=0)
+    images: Optional[List[str]] = None
+    total_units: Optional[int] = Field(default=None, gt=0)
+    status: Optional[str] = None
 
 
 class HotelRoomResponseSchema(BaseModel):

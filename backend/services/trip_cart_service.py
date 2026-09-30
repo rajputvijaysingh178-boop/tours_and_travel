@@ -29,7 +29,7 @@ def _object_id(value: str):
 
 
 def _now():
-    return datetime.now(timezone.utc)
+    return datetime.utcnow()
 
 
 def _serialize(cart):
@@ -260,6 +260,13 @@ def select_hotel(
     if hotel.get("status") != "active":
         raise ValueError("Hotel is not active")
 
+    if str(hotel.get("destination_id")) != str(
+        cart.get("destination_id")
+    ):
+        raise ValueError(
+            "Hotel does not belong to the selected destination"
+        )
+
     trip_carts_collection.update_one(
         {"_id": cart["_id"]},
         {
@@ -298,14 +305,23 @@ def select_room(
     if not room:
         raise ValueError("Room not found")
 
+    if not cart.get("hotel_id"):
+        raise ValueError("Select a hotel before selecting a room")
+
+    selected_hotel = hotels_collection.find_one({
+        "_id": _object_id(cart["hotel_id"])
+    })
+
+    if not selected_hotel:
+        raise ValueError("Selected hotel not found")
+
+    if selected_hotel.get("status") != "active":
+        raise ValueError("Selected hotel is not active")
+
     if room.get("status") != "active":
         raise ValueError("Room is not active")
 
-    if (
-        cart.get("hotel_id")
-        and str(room.get("hotel_id"))
-        != str(cart["hotel_id"])
-    ):
+    if str(room.get("hotel_id")) != str(cart["hotel_id"]):
         raise ValueError(
             "Room does not belong to selected hotel"
         )
@@ -348,9 +364,23 @@ def select_activities(
 
     _ensure_draft(cart)
 
+    valid_activity_ids = []
+
     for activity_id in activity_ids:
+
+        # Make sure ID is a string
+        activity_id = str(activity_id).strip()
+
+        # Validate MongoDB ObjectId
+        try:
+            activity_object_id = ObjectId(activity_id)
+        except (InvalidId, TypeError):
+            raise ValueError(
+                f"Invalid activity ID: {activity_id}"
+            )
+
         activity = activities_collection.find_one({
-            "_id": _object_id(activity_id)
+            "_id": activity_object_id
         })
 
         if not activity:
@@ -363,21 +393,25 @@ def select_activities(
                 f"Activity {activity_id} is not active"
             )
 
+        # Make sure activity belongs to cart destination
+        if activity.get("destination_id") != cart.get("destination_id"):
+            raise ValueError(
+                f"Activity {activity_id} does not belong to this destination"
+            )
+
+        valid_activity_ids.append(activity_id)
+
     trip_carts_collection.update_one(
         {"_id": cart["_id"]},
         {
             "$set": {
-                "activity_ids": activity_ids,
+                "activity_ids": valid_activity_ids,
                 "updated_at": _now(),
             }
         }
     )
 
-    return get_trip_cart(
-        cart_id,
-        customer_id
-    )
-
+    return get_trip_cart(cart_id, customer_id)
 
 def select_guide(
     cart_id: str,

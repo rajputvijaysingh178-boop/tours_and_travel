@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from schemas.guide_schema import (
     GuideCreateSchema,
@@ -12,6 +12,7 @@ from services.guide_service import (
     update_guide,
     delete_guide,
 )
+from services.aut_dependency import get_admin_user
 
 
 router = APIRouter(
@@ -20,7 +21,7 @@ router = APIRouter(
 )
 
 
-@router.post("")
+@router.post("", dependencies=[Depends(get_admin_user)])
 def create_guide_route(
     data: GuideCreateSchema
 ):
@@ -51,7 +52,7 @@ def get_guide_route(guide_id: str):
         )
 
 
-@router.put("/{guide_id}")
+@router.put("/{guide_id}", dependencies=[Depends(get_admin_user)])
 def update_guide_route(
     guide_id: str,
     data: GuideUpdateSchema
@@ -68,7 +69,7 @@ def update_guide_route(
         )
 
 
-@router.delete("/{guide_id}")
+@router.delete("/{guide_id}", dependencies=[Depends(get_admin_user)])
 def delete_guide_route(
     guide_id: str
 ):

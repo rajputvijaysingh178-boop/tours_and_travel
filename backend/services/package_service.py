@@ -95,7 +95,7 @@ def create_package(package_data):
         "max_passengers": package_data.max_passengers,
         "start_date": package_data.start_date,
         "end_date": package_data.end_date,
-        "status": "draft",
+        "status": package_data.status,
         "cancellation_policy": (
             package_data.cancellation_policy
         ),

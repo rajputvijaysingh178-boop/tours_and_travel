@@ -60,6 +60,7 @@ def register_user(
 def login_user(
     email: str,
     password: str,
+    expected_role: str | None = None,
 ):
    
     user = users_collection.find_one(
@@ -78,6 +79,9 @@ def login_user(
         password,
         user["password_hash"],
     ):
+        raise ValueError("Invalid email or password")
+
+    if expected_role and user.get("role", "customer") != expected_role:
         raise ValueError("Invalid email or password")
 
     user_id = str(user["_id"])
@@ -105,3 +109,7 @@ def login_user(
         "refresh_token": refresh_token,
         "token_type": "bearer",
     }
+
+
+def login_admin_user(email: str, password: str):
+    return login_user(email, password, expected_role="admin")

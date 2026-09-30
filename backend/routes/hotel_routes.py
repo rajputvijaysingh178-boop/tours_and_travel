@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from schemas.hotel_schema import (
     HotelCreateSchema,
@@ -11,6 +11,7 @@ from services.hotel_service import (
     add_room,
     get_availability,
 )
+from services.aut_dependency import get_admin_user
 
 
 router = APIRouter(
@@ -18,7 +19,7 @@ router = APIRouter(
 )
 
 
-@router.post("/hotels")
+@router.post("/hotels", dependencies=[Depends(get_admin_user)])
 def create_hotel_route(
     data: HotelCreateSchema
 ):
@@ -32,11 +33,11 @@ def create_hotel_route(
 
 
 @router.get("/hotels")
-def get_hotels_route():
-    return get_hotels()
+def get_hotels_route(destination_id: str | None = None):
+    return get_hotels(destination_id)
 
 
-@router.post("/hotels/{hotel_id}/rooms")
+@router.post("/hotels/{hotel_id}/rooms", dependencies=[Depends(get_admin_user)])
 def add_room_route(
     hotel_id: str,
     data: HotelRoomCreateSchema,

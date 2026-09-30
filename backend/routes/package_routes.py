@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from schemas.package_schema import (
     PackageCreateSchema,
@@ -14,6 +14,7 @@ from services.package_service import (
     publish_package,
     delete_package
 )
+from services.aut_dependency import get_admin_user
 
 
 router = APIRouter(
@@ -22,7 +23,7 @@ router = APIRouter(
 )
 
 
-@router.post("")
+@router.post("", dependencies=[Depends(get_admin_user)])
 def create_package_route(
     data: PackageCreateSchema
 ):
@@ -55,7 +56,7 @@ def get_package_route(
         )
 
 
-@router.put("/{package_id}")
+@router.put("/{package_id}", dependencies=[Depends(get_admin_user)])
 def update_package_route(
     package_id: str,
     data: PackageUpdateSchema
@@ -73,7 +74,7 @@ def update_package_route(
         )
 
 
-@router.patch("/{package_id}/publish")
+@router.patch("/{package_id}/publish", dependencies=[Depends(get_admin_user)])
 def publish_package_route(
     package_id: str
 ):
@@ -87,7 +88,7 @@ def publish_package_route(
         )
 
 
-@router.delete("/{package_id}")
+@router.delete("/{package_id}", dependencies=[Depends(get_admin_user)])
 def delete_package_route(
     package_id: str
 ):

@@ -14,7 +14,6 @@ def _object_id(value: str):
     except InvalidId:
         raise ValueError("Invalid ID")
 
-
 def create_hotel(hotel_data):
 
     destination = destinations_collection.find_one({
@@ -48,50 +47,27 @@ def create_hotel(hotel_data):
     }
 
 
-def get_hotels():
-    hotels = hotels_collection.find({
-        "status": {
-            "$ne": "deleted"
-        }
-    })
+def get_hotels(destination_id: str | None = None):
+    query = {"status": "active"}
 
+    if destination_id:
+        query["destination_id"] = destination_id
+
+    hotels = hotels_collection.find(query)
     result = []
 
     for hotel in hotels:
         result.append({
             "hotel_id": str(hotel["_id"]),
             "name": hotel.get("name", ""),
-            "destination_id": hotel.get(
-                "destination_id"
-            ),
-            "description": hotel.get(
-                "description",
-                ""
-            ),
-            "location": hotel.get(
-                "location",
-                ""
-            ),
-            "contact_details": hotel.get(
-                "contact_details",
-                ""
-            ),
-            "star_rating": hotel.get(
-                "star_rating",
-                0
-            ),
-            "amenities": hotel.get(
-                "amenities",
-                []
-            ),
-            "images": hotel.get(
-                "images",
-                []
-            ),
-            "status": hotel.get(
-                "status",
-                "draft"
-            ),
+            "destination_id": hotel.get("destination_id"),
+            "description": hotel.get("description", ""),
+            "location": hotel.get("location", ""),
+            "contact_details": hotel.get("contact_details", ""),
+            "star_rating": hotel.get("star_rating", 0),
+            "amenities": hotel.get("amenities", []),
+            "images": hotel.get("images", []),
+            "status": hotel.get("status", "active"),
         })
 
     return result

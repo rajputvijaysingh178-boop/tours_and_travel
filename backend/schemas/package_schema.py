@@ -13,6 +13,7 @@ class PackageCreateSchema(BaseModel):
     end_date: str
     cancellation_policy: str
     images: List[str] = []
+    status: str = "draft"
 
 
 class PackageUpdateSchema(BaseModel):
@@ -30,6 +31,7 @@ class PackageUpdateSchema(BaseModel):
     end_date: Optional[str] = None
     cancellation_policy: Optional[str] = None
     images: Optional[List[str]] = None
+    status: Optional[str] = None
 
 
 class PackageResponseSchema(BaseModel):

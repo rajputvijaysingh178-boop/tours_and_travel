@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from schemas.vehicle_schema import (
     VehicleCreateSchema,
@@ -12,6 +12,7 @@ from services.vehicle_service import (
     update_vehicle,
     delete_vehicle,
 )
+from services.aut_dependency import get_admin_user
 
 
 router = APIRouter(
@@ -20,7 +21,7 @@ router = APIRouter(
 )
 
 
-@router.post("")
+@router.post("", dependencies=[Depends(get_admin_user)])
 def create_vehicle_route(
     data: VehicleCreateSchema
 ):
@@ -51,7 +52,7 @@ def get_vehicle_route(vehicle_id: str):
         )
 
 
-@router.put("/{vehicle_id}")
+@router.put("/{vehicle_id}", dependencies=[Depends(get_admin_user)])
 def update_vehicle_route(
     vehicle_id: str,
     data: VehicleUpdateSchema
@@ -68,7 +69,7 @@ def update_vehicle_route(
         )
 
 
-@router.delete("/{vehicle_id}")
+@router.delete("/{vehicle_id}", dependencies=[Depends(get_admin_user)])
 def delete_vehicle_route(
     vehicle_id: str
 ):

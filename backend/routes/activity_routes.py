@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from schemas.activity_schema import (
     ActivityCreateSchema,
@@ -12,6 +12,7 @@ from services.activity_service import (
     update_activity,
     delete_activity,
 )
+from services.aut_dependency import get_admin_user
 
 
 router = APIRouter(
@@ -20,7 +21,7 @@ router = APIRouter(
 )
 
 
-@router.post("")
+@router.post("", dependencies=[Depends(get_admin_user)])
 def create_activity_route(data: ActivityCreateSchema):
     try:
         return create_activity(data)
@@ -49,7 +50,7 @@ def get_activity_route(activity_id: str):
         )
 
 
-@router.put("/{activity_id}")
+@router.put("/{activity_id}", dependencies=[Depends(get_admin_user)])
 def update_activity_route(
     activity_id: str,
     data: ActivityUpdateSchema
@@ -66,7 +67,7 @@ def update_activity_route(
         )
 
 
-@router.delete("/{activity_id}")
+@router.delete("/{activity_id}", dependencies=[Depends(get_admin_user)])
 def delete_activity_route(
     activity_id: str
 ):

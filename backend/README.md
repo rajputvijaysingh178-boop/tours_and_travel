@@ -145,6 +145,26 @@ The current implementation validates the access-token type and loads the user
 from MongoDB. There is no refresh-token endpoint in the current API.
 
 ## API Endpoints
+## Admin Dashboard
+
+The separate dashboard is available at `/admin`. Administrators authenticate
+through `/auth/admin/login`; customer credentials cannot sign in there, and
+admin APIs verify the account role from MongoDB on every request. There is no
+public admin registration endpoint.
+
+To create the first administrator, run the bootstrap script from the backend
+directory after configuring its existing MongoDB and JWT environment:
+
+```powershell
+.\venv\Scripts\python.exe .\scripts\create_admin.py
+```
+
+The script prompts for a name, email, and password without echoing the password.
+Admin image uploads require the backend-only `CLOUDINARY_CLOUD_NAME`,
+`CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` settings. The dashboard stores
+Cloudinary secure URLs, not image binaries, in MongoDB.
+
+## API Endpoints
 
 All paths below are relative to the API base URL, for example
 `http://127.0.0.1:8000`.

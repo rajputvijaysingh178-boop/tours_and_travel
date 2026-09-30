@@ -20,6 +20,9 @@ from routes.trip_cart_routes import router as trip_cart_router
 from routes.activity_routes import router as activity_router
 from routes.inventory_hold_routes import router as inventory_hold_router
 from routes.payment_order_routes import router as payment_order_router
+from routes.checkout_routes import router as checkout_router
+from routes.destination_routes import router as destination_router
+from routes.admin_routes import router as admin_router
 app = FastAPI()
 
 # CORS Configuration
@@ -55,6 +58,9 @@ app.include_router(trip_cart_router)
 app.include_router(activity_router)
 app.include_router(inventory_hold_router)
 app.include_router(payment_order_router)
+app.include_router(checkout_router)
+app.include_router(destination_router)
+app.include_router(admin_router)
 
 
 @app.get("/health")

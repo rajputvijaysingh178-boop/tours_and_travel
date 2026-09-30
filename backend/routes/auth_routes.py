@@ -1,6 +1,10 @@
 from fastapi import APIRouter, HTTPException
 from schemas.auth_schema import RegisterSchema,LoginSchema,TokenResponse
-from services.auth_services import register_user,login_user
+from services.auth_services import (
+    register_user,
+    login_user,
+    login_admin_user,
+)
 
 
 router = APIRouter(prefix="/auth",tags=["Authentication"],)
@@ -23,7 +27,22 @@ def register(data: RegisterSchema):
 @router.post("/login",response_model=TokenResponse,)
 def login(data: LoginSchema):
     try:
-        return login_user(email=data.email,password=data.password,)
+        return login_user(
+            email=data.email,
+            password=data.password,
+            expected_role="customer",
+        )
 
     except ValueError as e:
         raise HTTPException(status_code=401,detail=str(e),)
+
+
+@router.post("/admin/login", response_model=TokenResponse)
+def admin_login(data: LoginSchema):
+    try:
+        return login_admin_user(
+            email=data.email,
+            password=data.password,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))

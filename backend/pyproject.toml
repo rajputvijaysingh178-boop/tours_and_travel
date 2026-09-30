@@ -7,7 +7,18 @@ authors = [
     { name = "vijay singh", email = "rajputvijaysingh@gmail.com" }
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "cloudinary>=1.44.0",
+    "bcrypt>=4.0.1,<4.1",
+    "fastapi>=0.115.0",
+    "passlib[bcrypt]>=1.7.4",
+    "pydantic[email]>=2.9.0",
+    "pyjwt>=2.9.0",
+    "pymongo>=4.9.0",
+    "python-dotenv>=1.0.1",
+    "python-multipart>=0.0.20",
+    "uvicorn>=0.30.0",
+]
 
 [project.scripts]
 toursandtravels = "toursandtravels:main"
