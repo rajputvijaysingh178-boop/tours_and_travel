@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
 
 from services.aut_dependency import get_current_user
 
@@ -15,6 +16,11 @@ router = APIRouter(
     prefix="/bookings",
     tags=["Bookings"]
 )
+
+
+class BookingCancellationRequest(BaseModel):
+    reason: str
+    additional_reason: str | None = None
 
 
 @router.post("")
@@ -50,11 +56,13 @@ def get_bookings_route(
 
 @router.get("/{booking_id}")
 def get_booking_route(
-    booking_id: str
+    booking_id: str,
+    current_user: dict = Depends(get_current_user),
 ):
     try:
         return get_booking(
-            booking_id
+            booking_id,
+            current_user["id"],
         )
 
     except ValueError as e:
@@ -83,12 +91,24 @@ def confirm_booking_route(
 @router.post("/{booking_id}/cancel")
 def cancel_booking_route(
     booking_id: str,
-    reason: str
+    cancellation: BookingCancellationRequest | None = None,
+    reason: str = "Customer requested cancellation",
+    current_user: dict = Depends(get_current_user),
 ):
+    selected_reason = cancellation.reason.strip() if cancellation else reason.strip()
+    if not selected_reason:
+        raise HTTPException(status_code=422, detail="Cancellation reason is required")
+    additional_reason = (
+        cancellation.additional_reason.strip() or None
+        if cancellation and cancellation.additional_reason
+        else None
+    )
     try:
         return cancel_booking(
             booking_id,
-            reason
+            current_user["id"],
+            selected_reason,
+            additional_reason,
         )
 
     except ValueError as e:

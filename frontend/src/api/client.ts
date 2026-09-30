@@ -90,5 +90,8 @@ export const api = {
     payment: (id: string) => send<ApiRecord>(`/checkout/${id}/payment`, 'POST'),
     verify: (id: string, body: ApiRecord) => send<ApiRecord>(`/checkout/${id}/verify`, 'POST', body),
   },
-  bookings: { list: () => get<ApiRecord[]>('/bookings') },
+  bookings: {
+    list: () => get<ApiRecord[]>('/bookings'),
+    cancel: (id: string, body: ApiRecord) => send<ApiRecord>(`/bookings/${encodeURIComponent(id)}/cancel`, 'POST', body),
+  },
 };

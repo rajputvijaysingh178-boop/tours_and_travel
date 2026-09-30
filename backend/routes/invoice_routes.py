@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from schemas.invoice_schema import InvoiceResponseSchema
 from services.invoice_service import get_invoice
+from services.aut_dependency import get_current_user
 
 
 router = APIRouter(
@@ -15,10 +16,11 @@ router = APIRouter(
     response_model=InvoiceResponseSchema
 )
 def get_invoice_route(
-    booking_id: str
+    booking_id: str,
+    current_user: dict = Depends(get_current_user),
 ):
     try:
-        return get_invoice(booking_id)
+        return get_invoice(booking_id, current_user["id"])
     except ValueError as e:
         raise HTTPException(
             status_code=404,

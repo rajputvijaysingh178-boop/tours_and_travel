@@ -33,7 +33,72 @@ function Payment() { const { cartId } = useParams(); const navigate = useNavigat
 function Success() { const { state } = useLocationSafe(); return <section className="section success"><div className="success-mark">✓</div><p className="eyebrow">BOOKING CONFIRMED</p><h1>Your next story starts here.</h1><p className="lede">Your payment was verified and your trip is now confirmed.</p><div className="confirmation"><div><small>Booking ID</small><strong>{state?.booking_id || state?.booking?.booking_id || 'Confirmed'}</strong></div><div><small>Payment ID</small><strong>{state?.payment_id || 'Verified'}</strong></div><div><small>Invoice</small><strong>{state?.invoice_id || 'Generated'}</strong></div><div><small>Voucher</small><strong>{state?.voucher_id || 'Generated'}</strong></div></div><Link className="button" to="/bookings">View my bookings <span>→</span></Link></section>; }
 function useLocationSafe() { return { state: (window.history.state?.usr || {}) as ApiRecord }; }
 function Auth({ register = false }: { register?: boolean }) { const navigate = useNavigate(); const [form, setForm] = useState<ApiRecord>({}); const [error, setError] = useState(new URLSearchParams(window.location.search).has('session_expired') ? 'Your session has expired. Please log in again.' : ''); const submit = async (e: FormEvent) => { e.preventDefault(); try { const result = register ? await api.auth.register(form) : await api.auth.login(form); if (!register) { localStorage.setItem('access_token', result.access_token); if (result.refresh_token) localStorage.setItem('refresh_token', result.refresh_token); navigate('/destinations'); } else navigate('/login'); } catch (e) { setError((e as Error).message); } }; return <section className="auth"><div className="auth-art"><p className="eyebrow">TRAVEL BETTER</p><h1>There is a whole world waiting.</h1></div><form className="auth-form" onSubmit={submit}><p className="eyebrow">{register ? 'CREATE YOUR ACCOUNT' : 'WELCOME BACK'}</p><h2>{register ? 'Begin your next journey.' : 'Sign in to continue.'}</h2>{register && <input placeholder="Full name" required onChange={e => setForm({ ...form, name: e.target.value })} />}<input type="email" placeholder="Email address" required onChange={e => setForm({ ...form, email: e.target.value })} /><input type="password" placeholder="Password" required onChange={e => setForm({ ...form, password: e.target.value })} />{register && <><input placeholder="Phone" required onChange={e => setForm({ ...form, phone: e.target.value })} /><input placeholder="Address" required onChange={e => setForm({ ...form, address: e.target.value })} /><input placeholder="Emergency contact" required onChange={e => setForm({ ...form, emergency_contact: e.target.value })} /></>}{error && <ErrorMessage message={error} />}<button className="button">{register ? 'Create account' : 'Sign in'} <span>→</span></button><p className="muted">{register ? 'Already travelling with us? ' : 'New to TravelEase? '}<Link to={register ? '/login' : '/register'}>{register ? 'Sign in' : 'Create an account'}</Link></p></form></section>; }
-function Bookings() { const [items, setItems] = useState<Item[]>([]); const [error, setError] = useState(''); useEffect(() => { api.bookings.list().then(setItems).catch(e => setError(e.message)); }, []); return <section className="section page"><p className="eyebrow">YOUR JOURNEYS</p><h1>Trips worth remembering.</h1>{error ? <ErrorMessage message={error} /> : !items.length ? <div className="empty"><h2>No trips yet.</h2><p>Start with a destination and build something special.</p><Link className="button" to="/destinations">Explore destinations <span>→</span></Link></div> : <div className="booking-list">{items.map(item => <div className="booking-row" key={idOf(item)}><div><small>{item.booking_status || 'BOOKING'}</small><h3>{item.destination || item.package_name || 'TravelEase journey'}</h3></div><strong>{money(item.amount)}</strong></div>)}</div>}</section>; }
+function Bookings() {
+  const [items, setItems] = useState<Item[]>([]);
+  const [error, setError] = useState('');
+  const [selectedBooking, setSelectedBooking] = useState<Item | null>(null);
+  const [reason, setReason] = useState('');
+  const [additionalReason, setAdditionalReason] = useState('');
+  const [cancelError, setCancelError] = useState('');
+  const [cancelBusy, setCancelBusy] = useState(false);
+
+  useEffect(() => {
+    api.bookings.list().then(setItems).catch(e => setError(e.message));
+  }, []);
+
+  const confirmCancellation = async () => {
+    if (!selectedBooking || !reason || cancelBusy) return;
+    setCancelBusy(true);
+    setCancelError('');
+    try {
+      await api.bookings.cancel(String(selectedBooking.booking_id), {
+        reason,
+        additional_reason: additionalReason.trim() || null,
+      });
+      setItems(await api.bookings.list());
+      setSelectedBooking(null);
+      setReason('');
+      setAdditionalReason('');
+    } catch (e) {
+      setCancelError((e as Error).message);
+    } finally {
+      setCancelBusy(false);
+    }
+  };
+
+  return <section className="section page">
+    <p className="eyebrow">YOUR JOURNEYS</p>
+    <h1>Trips worth remembering.</h1>
+    {error ? <ErrorMessage message={error} /> : !items.length ? <div className="empty"><h2>No trips yet.</h2><p>Start with a destination and build something special.</p><Link className="button" to="/destinations">Explore destinations <span>→</span></Link></div> : <div className="booking-list">{items.map(item => {
+      const status = String(item.booking_status ?? '').trim().toLowerCase();
+      const canCancel = status === 'pending' || status === 'confirmed';
+      return <div className="booking-row" key={idOf(item)}>
+        <div><small>{item.booking_status || 'BOOKING'}</small><h3>{item.destination || item.package_name || 'TravelEase journey'}</h3></div>
+        <div className="booking-row-actions"><strong>{money(item.amount)}</strong>{canCancel && <button className="button" type="button" onClick={() => { setSelectedBooking(item); setReason(''); setAdditionalReason(''); setCancelError(''); }}>Cancel Booking</button>}</div>
+      </div>;
+    })}</div>}
+    {selectedBooking && <dialog className="cancellation-dialog" open aria-labelledby="cancellation-title">
+      <h2 id="cancellation-title">Cancel Booking</h2>
+      <p>Why do you want to cancel this booking?</p>
+      <label htmlFor="cancellation-reason">Reason</label>
+      <select id="cancellation-reason" required value={reason} onChange={e => setReason(e.target.value)}>
+        <option value="">Select a reason</option>
+        <option>Change of plans</option>
+        <option>Travel dates don't work</option>
+        <option>Found another option</option>
+        <option>Personal reason</option>
+        <option>Other</option>
+      </select>
+      <label htmlFor="additional-cancellation-reason">Additional reason</label>
+      <textarea id="additional-cancellation-reason" rows={3} value={additionalReason} onChange={e => setAdditionalReason(e.target.value)} />
+      {cancelError && <ErrorMessage message={cancelError} />}
+      <div className="cancellation-actions">
+        <button type="button" className="button-secondary" disabled={cancelBusy} onClick={() => setSelectedBooking(null)}>Keep Booking</button>
+        <button type="button" className="button" disabled={!reason || cancelBusy} onClick={confirmCancellation}>{cancelBusy ? 'Cancelling...' : 'Confirm Cancellation'}</button>
+      </div>
+    </dialog>}
+  </section>;
+}
 function RequireAuth({ children }: { children: React.ReactNode }) { return localStorage.getItem('access_token') ? <>{children}</> : <Navigate to="/login" replace />; }
 export default function App() {
   const location = useLocation();
