@@ -23,12 +23,136 @@ function Card({ item, kind = 'destination', onClick }: { item: Item; kind?: stri
 function Home() { const [items, setItems] = useState<Item[]>([]); const [error, setError] = useState(''); useEffect(() => { api.destinations.list().then(items => setItems(uniqueDestinations(items))).catch(e => setError(e.message)); }, []); return <><section className="hero"><div className="hero-copy"><p className="eyebrow">THE ART OF GOING SOMEWHERE</p><h1>Find a place that feels like <em>yours.</em></h1><p>Curated escapes, local stories, and every detail handled with care.</p><Link className="button light" to="/destinations">Explore destinations <span>→</span></Link></div><div className="hero-meta"><span>01</span><i /> <span>Southern India, slowly</span></div></section><section className="section intro"><div><p className="eyebrow">START WITH A FEELING</p><h2>Journeys with a little more soul.</h2></div><p>TravelEase pairs you with places worth lingering in and the people who know them best. Choose a destination, then make the trip yours.</p></section><section className="section"><div className="section-heading"><div><p className="eyebrow">WORTH THE DETOUR</p><h2>Where will you wander?</h2></div><Link to="/destinations">See all <span>↗</span></Link></div>{error ? <ErrorMessage message={error} /> : !items.length ? <Loading /> : <div className="card-grid">{items.slice(0, 6).map(item => <Link key={idOf(item)} to={`/destinations/${idOf(item)}`}><Card item={item} /></Link>)}</div>}</section></>; }
 function Destinations() { const [items, setItems] = useState<Item[]>([]); const [error, setError] = useState(''); useEffect(() => { api.destinations.list().then(items => setItems(uniqueDestinations(items))).catch(e => setError(e.message)); }, []); return <section className="section page"><p className="eyebrow">THE COLLECTION</p><h1>Destinations made for wandering.</h1><p className="lede">From misty hills to warm coastlines, start with a place that gives you room to breathe.</p>{error ? <ErrorMessage message={error} /> : !items.length ? <Loading /> : <div className="card-grid wide">{items.map(item => <Link key={idOf(item)} to={`/destinations/${idOf(item)}`}><Card item={item} /></Link>)}</div>}</section>; }
 function DestinationDetails() { const { destinationId } = useParams(); const [destination, setDestination] = useState<Item>(); const [packages, setPackages] = useState<Item[]>([]); const [error, setError] = useState(''); useEffect(() => { Promise.all([api.destinations.byId(destinationId!), api.packages.list()]).then(([d, ps]) => { setDestination(d); setPackages(ps.filter(p => String(p.destination_id || p.destinationId) === destinationId || !p.destination_id)); }).catch(e => setError(e.message)); }, [destinationId]); if (error) return <section className="section page"><ErrorMessage message={error} /></section>; if (!destination) return <Loading />; return <><section className="detail-hero" style={{ backgroundImage: `linear-gradient(90deg, rgba(11,36,54,.82), rgba(11,36,54,.14)), url(${imageOf(destination)})` }}><div><p className="eyebrow">DESTINATION</p><h1>{titleOf(destination)}</h1><p>{destination.description || 'A place to take the long way around.'}</p></div></section><section className="section"><div className="section-heading"><div><p className="eyebrow">CURATED FOR YOU</p><h2>Choose your way in.</h2></div></div><div className="card-grid">{packages.map(item => <Link key={idOf(item)} to={`/packages/${idOf(item)}`}><Card item={item} kind="package" /></Link>)}</div></section></>; }
-function PackageDetails() { const { packageId } = useParams(); const navigate = useNavigate(); const [item, setItem] = useState<Item>(); const [date, setDate] = useState(''); const [count, setCount] = useState(2); const [error, setError] = useState(''); useEffect(() => { api.packages.byId(packageId!).then(setItem).catch(e => setError(e.message)); }, [packageId]); const start = async () => { if (!localStorage.getItem('access_token')) return navigate('/login'); try { const cart = await api.carts.create({ package_id: packageId, travel_date: date, passenger_count: count }); navigate(`/booking/${cart.cart_id}`); } catch (e) { setError((e as Error).message); } }; if (error) return <section className="section page"><ErrorMessage message={error} /></section>; if (!item) return <Loading />; return <section className="section page split"><div><p className="eyebrow">THE JOURNEY</p><h1>{titleOf(item)}</h1><p className="lede">{item.description || 'A considered itinerary for curious travellers.'}</p><img className="feature-image" src={imageOf(item)} alt="" /></div><aside className="booking-panel"><p className="eyebrow">MAKE IT YOURS</p><h2>Start planning</h2><label>Travel date<input type="date" value={date} onChange={e => setDate(e.target.value)} /></label><label>Travellers<select value={count} onChange={e => setCount(Number(e.target.value))}>{[1, 2, 3, 4, 5].map(n => <option key={n}>{n}</option>)}</select></label><p className="muted">You can choose your hotel, room, activities, guide, and vehicle next.</p><button className="button" disabled={!date} onClick={start}>Build this trip <span>→</span></button></aside></section>; }
+function localDateString(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return localDateString(date);
+}
+
+function formatTravelDate(value: string) {
+  return new Intl.DateTimeFormat('en-IN', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(`${value}T00:00:00`));
+}
+
+function PackageDetails() {
+  const { packageId } = useParams();
+  const navigate = useNavigate();
+  const [item, setItem] = useState<Item>();
+  const [date, setDate] = useState('');
+  const [count, setCount] = useState(2);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setDate('');
+    api.packages.byId(packageId!).then(setItem).catch(e => setError(e.message));
+  }, [packageId]);
+
+  if (error) return <section className="section page"><ErrorMessage message={error} /></section>;
+  if (!item) return <Loading />;
+
+  const today = localDateString(new Date());
+  const availableFrom = item.available_from || item.start_date || '';
+  const availableUntil = item.available_until || item.end_date || '';
+  const duration = Number(item.duration);
+  const firstStartDate = availableFrom > today ? availableFrom : today;
+  const lastStartDate = availableUntil && duration > 0
+    ? addDays(availableUntil, 1 - duration)
+    : '';
+  const hasValidWindow = Boolean(
+    availableFrom &&
+    availableUntil &&
+    duration > 0 &&
+    firstStartDate <= lastStartDate,
+  );
+  const validSelection = hasValidWindow &&
+    date >= firstStartDate &&
+    date <= lastStartDate;
+  const hasCalculatedDates = Boolean(date) && Number.isFinite(duration) && duration > 0;
+  const endDate = hasCalculatedDates ? addDays(date, duration - 1) : '';
+
+  const start = async () => {
+    if (!validSelection) return;
+    if (!localStorage.getItem('access_token')) return navigate('/login');
+    try {
+      const cart = await api.carts.create({
+        package_id: packageId,
+        travel_date: date,
+        passenger_count: count,
+      });
+      navigate(`/booking/${cart.cart_id}`);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  return <section className="section page split">
+    <div>
+      <p className="eyebrow">THE JOURNEY</p>
+      <h1>{titleOf(item)}</h1>
+      <p className="lede">{item.description || 'A considered itinerary for curious travellers.'}</p>
+      <img className="feature-image" src={imageOf(item)} alt="" />
+    </div>
+    <aside className="booking-panel">
+      <p className="eyebrow">MAKE IT YOURS</p>
+      <h2>Start planning</h2>
+      <label>Travel start date
+        <input
+          type="date"
+          value={date}
+          min={hasValidWindow ? firstStartDate : undefined}
+          max={hasValidWindow ? lastStartDate : undefined}
+          onChange={event => setDate(event.target.value)}
+        />
+      </label>
+      {hasCalculatedDates && <div className="muted">
+        <p>Start Date: {formatTravelDate(date)}</p>
+        <p>End Date: {formatTravelDate(endDate)}</p>
+        <p>Duration: {duration} days</p>
+      </div>}
+      {!hasValidWindow && <p className="muted">No valid start dates are available for this package.</p>}
+      <label>Travellers<select value={count} onChange={event => setCount(Number(event.target.value))}>{[1, 2, 3, 4, 5].map(n => <option key={n}>{n}</option>)}</select></label>
+      <p className="muted">You can choose your hotel, room, activities, guide, and vehicle next.</p>
+      <button className="button" disabled={!validSelection} onClick={start}>Build this trip <span>→</span></button>
+    </aside>
+  </section>;
+}
 const steps = ['Hotel', 'Room', 'Activities', 'Guide', 'Vehicle', 'Passengers', 'Review', 'Payment'];
-function Summary({ cart }: { cart: Cart }) { const p = cart.price_snapshot || {}; return <aside className="summary"><p className="eyebrow">TRIP SUMMARY</p><h3>{cart.package_name || 'Your selected journey'}</h3><p className="muted">{cart.travel_date} · {cart.passenger_count} travellers</p>{[['Package', p.package_subtotal], ['Hotel', p.hotel_subtotal], ['Room', p.room_difference], ['Activities', p.activities_subtotal], ['Guide', p.guide_subtotal], ['Vehicle', p.vehicle_subtotal]].map(([label, value]) => <div className="line" key={String(label)}><span>{label}</span><span>{money(value)}</span></div>)}<div className="total"><span>Total</span><strong>{money(p.grand_total)}</strong></div></aside>; }
+function Summary({ cart }: { cart: Cart }) {
+  const p = cart.price_snapshot || {};
+  return <aside className="summary">
+    <p className="eyebrow">TRIP SUMMARY</p>
+    <h3>{cart.package_name || 'Your selected journey'}</h3>
+    <p className="muted">{cart.travel_date} – {cart.end_date} · {cart.passenger_count} travellers</p>
+    {[['Package', p.package_subtotal], ['Hotel', p.hotel_subtotal], ['Room', p.room_difference], ['Activities', p.activities_subtotal], ['Guide', p.guide_subtotal], ['Vehicle', p.vehicle_subtotal]].map(([label, value]) => <div className="line" key={String(label)}><span>{label}</span><span>{money(value)}</span></div>)}
+    <div className="total"><span>Total</span><strong>{money(p.grand_total)}</strong></div>
+  </aside>;
+}
 function Booking() { const { cartId } = useParams(); const navigate = useNavigate(); const [cart, setCart] = useState<Cart>(); const [options, setOptions] = useState<Item[]>([]); const [step, setStep] = useState(0); const [error, setError] = useState(''); useEffect(() => { if (!cartId) return; api.carts.get(cartId).then(setCart).catch(e => setError(e.message)); }, [cartId]); useEffect(() => { if (!cart) return; const loaders = [api.hotels.list, () => api.hotels.rooms(cart.hotel_id), () => api.activities.list(cart.destination_id), () => api.guides.list(cart.destination_id), () => api.vehicles.list(cart.destination_id)]; if (step < 5) loaders[step]().then(setOptions).catch(e => setError(e.message)); }, [cart, step]); const choose = async (item: Item) => { try { const id = idOf(item); const updated = step === 0 ? await api.carts.selectHotel(cartId!, id) : step === 1 ? await api.carts.selectRoom(cartId!, id) : step === 2 ? await api.carts.selectActivities(cartId!, [id]) : step === 3 ? await api.carts.selectGuide(cartId!, id) : await api.carts.selectVehicle(cartId!, id); setCart(updated); setStep(step + 1); } catch (e) { setError((e as Error).message); } }; if (error) return <section className="section page"><ErrorMessage message={error} /></section>; if (!cart) return <Loading />; return <section className="section booking"><div className="booking-main"><div className="progress">{steps.map((label, index) => <button className={index <= step ? 'active' : ''} key={label} onClick={() => index <= step && setStep(index)}><b>{index + 1}</b><span>{label}</span></button>)}</div>{step < 5 ? <><p className="eyebrow">STEP {step + 1} OF 8</p><h1>{steps[step]} for your journey.</h1><p className="lede">Choose what feels right. Your price updates directly from the backend after every selection.</p>{options.length ? <div className="choice-grid">{options.map(item => <button className="choice" key={idOf(item)} onClick={() => choose(item)}><img src={imageOf(item)} alt="" /><span><strong>{titleOf(item)}</strong><small>{item.description || item.location || item.type || 'Available for your dates'}</small></span><b>→</b></button>)}</div> : <Loading />}</> : step === 5 ? <PassengerStep cart={cart} onDone={updated => { setCart(updated); setStep(6); }} /> : step === 6 ? <ReviewStep cart={cart} onDone={() => { api.carts.review(cartId!).then(() => navigate(`/booking/${cartId}/payment`)).catch(e => setError(e.message)); }} /> : <Navigate to={`/booking/${cartId}/payment`} />}</div><Summary cart={cart} /></section>; }
 function PassengerStep({ cart, onDone }: { cart: Cart; onDone: (cart: Cart) => void }) { const [passengers, setPassengers] = useState<Passenger[]>(cart.passengers?.length ? cart.passengers : Array.from({ length: cart.passenger_count }, () => ({ name: '', age: 18, gender: '', phone: '', email: '' }))); const update = (index: number, key: keyof Passenger, value: string | number) => setPassengers(all => all.map((p, i) => i === index ? { ...p, [key]: value } : p)); return <><p className="eyebrow">STEP 6 OF 8</p><h1>Who is coming along?</h1><p className="lede">Add the details exactly as they should appear on your booking.</p><div className="passengers">{passengers.map((p, i) => <div className="passenger" key={i}><h3>Traveller {i + 1}</h3><input placeholder="Full name" value={p.name} onChange={e => update(i, 'name', e.target.value)} /><div className="field-row"><input type="number" min="1" placeholder="Age" value={p.age} onChange={e => update(i, 'age', Number(e.target.value))} /><input placeholder="Gender" value={p.gender} onChange={e => update(i, 'gender', e.target.value)} /></div><input type="tel" placeholder="Phone" value={p.phone} onChange={e => update(i, 'phone', e.target.value)} /><input type="email" placeholder="Email" value={p.email} onChange={e => update(i, 'email', e.target.value)} /></div>)}</div><button className="button" onClick={() => api.carts.passengers(cart.cart_id, passengers).then(onDone)}>Continue to review <span>→</span></button></>; }
-function ReviewStep({ cart, onDone }: { cart: Cart; onDone: () => void }) { return <><p className="eyebrow">STEP 7 OF 8</p><h1>One last look.</h1><p className="lede">Everything here is ready to be held for payment.</p><div className="review-box"><div><strong>Travel date</strong><span>{cart.travel_date}</span></div><div><strong>Travellers</strong><span>{cart.passenger_count}</span></div><div><strong>Passenger details</strong><span>{cart.passengers?.map(p => p.name).join(', ')}</span></div><div><strong>Grand total</strong><span>{money(cart.price_snapshot?.grand_total)}</span></div></div><button className="button" onClick={onDone}>Confirm and continue <span>→</span></button></>; }
+function ReviewStep({ cart, onDone }: { cart: Cart; onDone: () => void }) {
+  return <>
+    <p className="eyebrow">STEP 7 OF 8</p>
+    <h1>One last look.</h1>
+    <p className="lede">Everything here is ready to be held for payment.</p>
+    <div className="review-box">
+      <div><strong>Travel dates</strong><span>{cart.travel_date} – {cart.end_date}</span></div>
+      <div><strong>Travellers</strong><span>{cart.passenger_count}</span></div>
+      <div><strong>Passenger details</strong><span>{cart.passengers?.map(p => p.name).join(', ')}</span></div>
+      <div><strong>Grand total</strong><span>{money(cart.price_snapshot?.grand_total)}</span></div>
+    </div>
+    <button className="button" onClick={onDone}>Confirm and continue <span>→</span></button>
+  </>;
+}
 function Payment() { const { cartId } = useParams(); const navigate = useNavigate(); const [cart, setCart] = useState<Cart>(); const [paymentId, setPaymentId] = useState('test_payment_id'); const [signature, setSignature] = useState('test_signature'); const [error, setError] = useState(''); const [locked, setLocked] = useState(false); useEffect(() => { api.carts.get(cartId!).then(setCart).catch(e => setError(e.message)); }, [cartId]); const lock = async () => { try { await api.checkout.lock(cartId!); await api.checkout.payment(cartId!); setLocked(true); } catch (e) { setError((e as Error).message); } }; const verify = async () => { try { const result = await api.checkout.verify(cartId!, { payment_id: paymentId, payment_signature: signature }); navigate(`/booking/${cartId}/success`, { state: result }); } catch (e) { setError((e as Error).message); } }; if (!cart) return error ? <section className="section page"><ErrorMessage message={error} /></section> : <Loading />; return <section className="section payment-page"><div><p className="eyebrow">STEP 8 OF 8</p><h1>Secure your journey.</h1><p className="lede">Payment verification is currently in development mode. The architecture is ready for Razorpay when you are.</p>{error && <ErrorMessage message={error} />}{!locked ? <button className="button" onClick={lock}>Lock trip for payment <span>→</span></button> : <div className="booking-panel"><label>Development payment ID<input value={paymentId} onChange={e => setPaymentId(e.target.value)} /></label><label>Development signature<input value={signature} onChange={e => setSignature(e.target.value)} /></label><button className="button" onClick={verify}>Verify payment <span>→</span></button></div>}</div><Summary cart={cart} /></section>; }
 function Success() { const { state } = useLocationSafe(); return <section className="section success"><div className="success-mark">✓</div><p className="eyebrow">BOOKING CONFIRMED</p><h1>Your next story starts here.</h1><p className="lede">Your payment was verified and your trip is now confirmed.</p><div className="confirmation"><div><small>Booking ID</small><strong>{state?.booking_id || state?.booking?.booking_id || 'Confirmed'}</strong></div><div><small>Payment ID</small><strong>{state?.payment_id || 'Verified'}</strong></div><div><small>Invoice</small><strong>{state?.invoice_id || 'Generated'}</strong></div><div><small>Voucher</small><strong>{state?.voucher_id || 'Generated'}</strong></div></div><Link className="button" to="/bookings">View my bookings <span>→</span></Link></section>; }
 function useLocationSafe() { return { state: (window.history.state?.usr || {}) as ApiRecord }; }
@@ -73,7 +197,7 @@ function Bookings() {
       const status = String(item.booking_status ?? '').trim().toLowerCase();
       const canCancel = status === 'pending' || status === 'confirmed';
       return <div className="booking-row" key={idOf(item)}>
-        <div><small>{item.booking_status || 'BOOKING'}</small><h3>{item.destination || item.package_name || 'TravelEase journey'}</h3></div>
+        <div><small>{item.booking_status || 'BOOKING'}</small><h3>{item.destination || item.package_name || 'TravelEase journey'}</h3><small>{item.travel_date} – {item.end_date}</small></div>
         <div className="booking-row-actions"><strong>{money(item.amount)}</strong>{canCancel && <button className="button" type="button" onClick={() => { setSelectedBooking(item); setReason(''); setAdditionalReason(''); setCancelError(''); }}>Cancel Booking</button>}</div>
       </div>;
     })}</div>}
