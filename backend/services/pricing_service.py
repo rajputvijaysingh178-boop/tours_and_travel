@@ -40,8 +40,10 @@ def calculate_cart_price(cart: dict) -> dict:
 
         if room:
             nights = cart.get("nights", 1)
+            room_quantity = cart.get("room_quantity", 1) or 1
             hotel_price = (
                 room.get("nightly_rate", 0)
+                * room_quantity
                 * nights
             )
 

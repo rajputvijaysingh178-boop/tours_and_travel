@@ -59,10 +59,14 @@ def add_room_route(
 )
 def get_availability_route(
     hotel_id: str,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ):
     try:
         return get_availability(
-            hotel_id
+            hotel_id,
+            start_date,
+            end_date,
         )
     except ValueError as e:
         raise HTTPException(

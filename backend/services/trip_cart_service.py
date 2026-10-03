@@ -15,8 +15,10 @@ from database import (
 )
 
 from services.pricing_service import calculate_cart_price
+from services.package_service import validate_package_travel_date
 from services.inventory_hold_service import (
     create_hold,
+    release_cart_room_holds,
     release_cart_holds,
 )
 
@@ -39,10 +41,13 @@ def _serialize(cart):
         "package_id": cart["package_id"],
         "destination_id": cart.get("destination_id"),
         "travel_date": cart["travel_date"],
+        "end_date": cart.get("end_date"),
         "passenger_count": cart["passenger_count"],
         "nights": cart.get("nights", 1),
         "hotel_id": cart.get("hotel_id"),
         "room_id": cart.get("room_id"),
+        "room_quantity": cart.get("room_quantity"),
+        "room_hold_id": cart.get("room_hold_id"),
         "activity_ids": cart.get("activity_ids", []),
         "guide_id": cart.get("guide_id"),
         "vehicle_id": cart.get("vehicle_id"),
@@ -77,8 +82,10 @@ def create_trip_cart(
     if not package:
         raise ValueError("Package not found")
 
-    if package.get("status") == "deleted":
-        raise ValueError("Package is not available")
+    travel_date, end_date = validate_package_travel_date(
+        package,
+        data.travel_date,
+    )
 
     max_passengers = package.get(
         "max_passengers",
@@ -99,7 +106,8 @@ def create_trip_cart(
         "destination_id": package.get(
             "destination_id"
         ),
-        "travel_date": data.travel_date,
+        "travel_date": travel_date,
+        "end_date": end_date,
         "passenger_count": data.passenger_count,
         "nights": max(
             package.get("duration", 1) - 1,
@@ -107,6 +115,8 @@ def create_trip_cart(
         ),
         "hotel_id": None,
         "room_id": None,
+        "room_quantity": None,
+        "room_hold_id": None,
         "activity_ids": [],
         "guide_id": None,
         "vehicle_id": None,
@@ -267,15 +277,25 @@ def select_hotel(
             "Hotel does not belong to the selected destination"
         )
 
+    update = {
+        "$set": {
+            "hotel_id": hotel_id,
+            "updated_at": _now(),
+        }
+    }
+    if str(cart.get("hotel_id")) != hotel_id:
+        update["$unset"] = {
+            "room_id": "",
+            "room_quantity": "",
+            "room_hold_id": "",
+        }
+
     trip_carts_collection.update_one(
         {"_id": cart["_id"]},
-        {
-            "$set": {
-                "hotel_id": hotel_id,
-                "updated_at": _now(),
-            }
-        }
+        update,
     )
+    if str(cart.get("hotel_id")) != hotel_id:
+        release_cart_room_holds(cart_id)
 
     return get_trip_cart(
         cart_id,
@@ -286,7 +306,8 @@ def select_hotel(
 def select_room(
     cart_id: str,
     customer_id: str,
-    room_id: str
+    room_id: str,
+    room_quantity: int,
 ):
     cart = trip_carts_collection.find_one({
         "_id": _object_id(cart_id),
@@ -326,11 +347,29 @@ def select_room(
             "Room does not belong to selected hotel"
         )
 
-    create_hold(
+    capacity = room.get("capacity", 0)
+    if isinstance(capacity, bool) or not isinstance(capacity, int) or capacity <= 0:
+        raise ValueError("Room capacity must be greater than zero")
+
+    if isinstance(room_quantity, bool) or not isinstance(room_quantity, int) or room_quantity < 1:
+        raise ValueError("Room quantity must be a positive whole number")
+
+    minimum_quantity = (
+        cart["passenger_count"] + capacity - 1
+    ) // capacity
+    if room_quantity < minimum_quantity:
+        raise ValueError(
+            f"At least {minimum_quantity} rooms are required for "
+            f"{cart['passenger_count']} passengers"
+        )
+
+    hold = create_hold(
         cart_id,
         "hotel_room",
         room_id,
         cart["travel_date"],
+        cart.get("end_date"),
+        room_quantity,
     )
 
     trip_carts_collection.update_one(
@@ -338,6 +377,8 @@ def select_room(
         {
             "$set": {
                 "room_id": room_id,
+                "room_quantity": room_quantity,
+                "room_hold_id": hold["hold_id"],
                 "updated_at": _now(),
             }
         }

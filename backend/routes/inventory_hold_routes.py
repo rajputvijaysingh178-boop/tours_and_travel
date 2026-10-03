@@ -21,6 +21,8 @@ def create_hold_route(
     resource_type: str,
     resource_id: str,
     travel_date: str,
+    end_date: str | None = None,
+    quantity: int = 1,
 ):
     try:
         return create_hold(
@@ -28,6 +30,8 @@ def create_hold_route(
             resource_type,
             resource_id,
             travel_date,
+            end_date,
+            quantity,
         )
     except ValueError as e:
         raise HTTPException(

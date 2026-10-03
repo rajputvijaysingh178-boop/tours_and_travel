@@ -65,7 +65,7 @@ export const api = {
   },
   hotels: {
     list: (destinationId = localStorage.getItem('active_destination_id') || undefined) => get<ApiRecord[]>(destinationId ? `/hotels?destination_id=${destinationId}` : '/hotels').then(items => uniqueRecords(items, 'hotel_id')),
-    rooms: (hotelId: string) => get<ApiRecord[]>(`/hotels/${hotelId}/availability`).then(items => uniqueRecords(items, 'room_id')),
+    rooms: (hotelId: string, startDate: string, endDate: string) => get<ApiRecord[]>(`/hotels/${hotelId}/availability?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`).then(items => uniqueRecords(items, 'room_id')),
   },
   activities: { list: (destinationId?: string) => get<ApiRecord[]>(destinationId ? `/activities?destination_id=${destinationId}` : '/activities').then(items => uniqueRecords(items, 'activity_id')) },
   guides: { list: (destinationId?: string) => get<ApiRecord[]>(destinationId ? `/guides?destination_id=${destinationId}` : '/guides').then(items => uniqueRecords(items, 'guide_id')) },
@@ -78,7 +78,7 @@ export const api = {
       },
     get: (id: string) => get<Cart>(`/trip-carts/${id}`),
     selectHotel: (id: string, hotel_id: string) => send<Cart>(`/trip-carts/${id}/hotel`, 'PATCH', { hotel_id }),
-    selectRoom: (id: string, room_id: string) => send<Cart>(`/trip-carts/${id}/room`, 'PATCH', { room_id }),
+    selectRoom: (id: string, room_id: string, room_quantity: number) => send<Cart>(`/trip-carts/${id}/room`, 'PATCH', { room_id, room_quantity }),
     selectActivities: (id: string, activity_ids: string[]) => send<Cart>(`/trip-carts/${id}/activities`, 'PATCH', { activity_ids }),
     selectGuide: (id: string, guide_id: string | null) => send<Cart>(`/trip-carts/${id}/guide`, 'PATCH', { guide_id }),
     selectVehicle: (id: string, vehicle_id: string | null) => send<Cart>(`/trip-carts/${id}/vehicle`, 'PATCH', { vehicle_id }),

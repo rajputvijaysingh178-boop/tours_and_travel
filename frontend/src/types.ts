@@ -11,6 +11,7 @@ export type Passenger = {
 export type Cart = Item & {
   cart_id: string;
   passenger_count: number;
+  room_quantity?: number | null;
   passengers: Passenger[];
   price_snapshot?: Item;
 };

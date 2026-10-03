@@ -8,13 +8,20 @@ from database import (
     trip_carts_collection,
     payment_orders_collection,
     bookings_collection,
+    packages_collection,
     payments_collection,
     invoices_collection,
     vouchers_collection,
-    inventory_holds_collection,
 )
 
 from services.pricing_service import calculate_cart_price
+from services.package_service import validate_package_travel_date
+from services.inventory_hold_service import (
+    convert_cart_holds,
+    create_booking_with_room_hold,
+    extend_cart_holds,
+    validate_cart_room_hold,
+)
 
 
 def _object_id(value: str):
@@ -26,6 +33,34 @@ def _object_id(value: str):
 
 def _now():
     return datetime.now(timezone.utc)
+
+
+def _sync_cart_trip_dates(cart: dict) -> None:
+    try:
+        package_id = ObjectId(str(cart["package_id"]))
+    except (InvalidId, KeyError, TypeError):
+        raise ValueError("Invalid package ID")
+
+    package = packages_collection.find_one({"_id": package_id})
+    if not package:
+        raise ValueError("Package not found")
+
+    travel_date, end_date = validate_package_travel_date(
+        package,
+        cart.get("travel_date", ""),
+    )
+    trip_carts_collection.update_one(
+        {"_id": cart["_id"]},
+        {
+            "$set": {
+                "travel_date": travel_date,
+                "end_date": end_date,
+                "updated_at": _now(),
+            }
+        }
+    )
+    cart["travel_date"] = travel_date
+    cart["end_date"] = end_date
 
 
 def lock_cart(cart_id: str, customer_id: str):
@@ -47,6 +82,8 @@ def lock_cart(cart_id: str, customer_id: str):
             "Review must be confirmed"
         )
 
+    _sync_cart_trip_dates(cart)
+
     passenger_count = cart.get(
         "passenger_count",
         0
@@ -65,6 +102,13 @@ def lock_cart(cart_id: str, customer_id: str):
     if len(passengers) != passenger_count:
         raise ValueError(
             "Complete passenger details are required"
+        )
+
+    validate_cart_room_hold(cart)
+    if cart.get("expires_at"):
+        extend_cart_holds(
+            cart_id,
+            cart["expires_at"],
         )
 
     price = calculate_cart_price(cart)
@@ -105,6 +149,8 @@ def create_payment_order(
         raise ValueError(
             "Cart must be locked before payment"
         )
+
+    _sync_cart_trip_dates(cart)
 
     price = cart.get("price_snapshot")
 
@@ -214,6 +260,7 @@ def verify_payment(
             "destination_id"
         ),
         "travel_date": cart["travel_date"],
+        "end_date": cart.get("end_date"),
         "passenger_count": cart[
             "passenger_count"
         ],
@@ -223,6 +270,8 @@ def verify_payment(
         ),
         "hotel_id": cart.get("hotel_id"),
         "room_id": cart.get("room_id"),
+        "room_quantity": cart.get("room_quantity"),
+        "room_hold_id": cart.get("room_hold_id"),
         "activity_ids": cart.get(
             "activity_ids",
             []
@@ -241,28 +290,18 @@ def verify_payment(
         "updated_at": _now(),
     }
 
-    booking_result = bookings_collection.insert_one(
-        booking
-    )
+    if cart.get("room_quantity") is not None:
+        booking_object_id = create_booking_with_room_hold(
+            booking,
+            cart,
+        )
+    else:
+        booking_object_id = bookings_collection.insert_one(
+            booking
+        ).inserted_id
 
-    booking_id = str(
-        booking_result.inserted_id
-    )
-
-    # Convert active holds to sold
-    inventory_holds_collection.update_many(
-        {
-            "cart_id": cart_id,
-            "status": "active",
-        },
-        {
-            "$set": {
-                "status": "converted",
-                "booking_id": booking_id,
-                "converted_at": _now(),
-            }
-        }
-    )
+    booking_id = str(booking_object_id)
+    convert_cart_holds(cart_id, booking_id)
 
     # Invoice
     invoice_number = (

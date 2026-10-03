@@ -53,9 +53,9 @@ function fieldsFor(resource: string, destinations: ApiRecord[], hotels: ApiRecor
     case 'packages': return [
       { key: 'name', label: 'Package name', required: true }, destination, { key: 'description', label: 'Description', type: 'textarea', required: true },
       { key: 'duration', label: 'Duration in days', type: 'number', required: true }, { key: 'base_price', label: 'Price per passenger', type: 'number', required: true },
-      { key: 'max_passengers', label: 'Maximum passengers', type: 'number', required: true }, { key: 'start_date', label: 'Start date', type: 'date', required: true },
-      { key: 'end_date', label: 'End date', type: 'date', required: true }, { key: 'cancellation_policy', label: 'Cancellation policy', type: 'textarea', required: true },
-      { key: 'status', label: 'Publication', type: 'select', required: true, options: [{ value: 'draft', label: 'Draft' }, { value: 'published', label: 'Published' }] },
+      { key: 'max_passengers', label: 'Maximum passengers', type: 'number', required: true }, { key: 'available_from', label: 'Available from', type: 'date', required: true },
+      { key: 'available_until', label: 'Available until', type: 'date', required: true }, { key: 'cancellation_policy', label: 'Cancellation policy', type: 'textarea', required: true },
+      { key: 'status', label: 'Availability', type: 'select', required: true, options: [{ value: 'draft', label: 'Inactive' }, { value: 'published', label: 'Active' }] },
     ];
     case 'hotels': return [
       { key: 'name', label: 'Hotel name', required: true }, destination, { key: 'description', label: 'Description', type: 'textarea', required: true },
@@ -89,7 +89,7 @@ function fieldsFor(resource: string, destinations: ApiRecord[], hotels: ApiRecor
 
 const columns: Record<string, { key: string; label: string }[]> = {
   destinations: [{ key: 'name', label: 'Destination' }, { key: 'state', label: 'Region' }, { key: 'country', label: 'Country' }, { key: 'status', label: 'Status' }],
-  packages: [{ key: 'name', label: 'Package' }, { key: 'destination_name', label: 'Destination' }, { key: 'duration', label: 'Days' }, { key: 'base_price', label: 'Price' }, { key: 'status', label: 'Status' }],
+  packages: [{ key: 'name', label: 'Package' }, { key: 'destination_name', label: 'Destination' }, { key: 'available_from', label: 'Available from' }, { key: 'available_until', label: 'Available until' }, { key: 'duration', label: 'Days' }, { key: 'base_price', label: 'Price' }, { key: 'status', label: 'Availability' }],
   hotels: [{ key: 'name', label: 'Hotel' }, { key: 'location', label: 'Location' }, { key: 'destination_name', label: 'Destination' }, { key: 'star_rating', label: 'Stars' }, { key: 'status', label: 'Status' }],
   rooms: [{ key: 'room_type', label: 'Room' }, { key: 'hotel_name', label: 'Hotel' }, { key: 'capacity', label: 'Capacity' }, { key: 'nightly_rate', label: 'Nightly rate' }, { key: 'total_units', label: 'Units' }, { key: 'status', label: 'Status' }],
   activities: [{ key: 'name', label: 'Activity' }, { key: 'destination_name', label: 'Destination' }, { key: 'duration_minutes', label: 'Minutes' }, { key: 'price', label: 'Price' }, { key: 'status', label: 'Status' }],

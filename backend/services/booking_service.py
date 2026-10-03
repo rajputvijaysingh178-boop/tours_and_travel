@@ -19,7 +19,11 @@ from database import (
     guides_collection,
     transport_assignments_collection,
 )
-from services.inventory_hold_service import release_cart_holds
+from services.inventory_hold_service import (
+    release_cart_holds,
+    release_booking_room_hold,
+)
+from services.package_service import validate_package_travel_date
 from services.refund_service import request_refund_for_booking
 
 
@@ -243,44 +247,14 @@ def create_booking(
     if not package:
         raise ValueError("Package not found")
 
-    # Find a departure/capacity record linked to this package
-    departure = departures_collection.find_one({
-        "package_id": package_id
-    })
-
-    if not departure:
-        raise ValueError(
-            "No departure/capacity is configured for this package"
-        )
-
-    capacity = departure.get(
-        "capacity",
-        package.get("max_passengers", 0)
+    travel_date, end_date = validate_package_travel_date(
+        package,
+        travel_date,
     )
-
-    if capacity <= 0:
-        raise ValueError("No passenger capacity available")
-
-    # Check bookings for THIS package and THIS selected date
-    existing_bookings = bookings_collection.find({
-        "package_id": package_id,
-        "travel_date": travel_date,
-        "booking_status": {
-            "$in": ["pending", "confirmed"]
-        }
-    })
-
-    booked_passengers = sum(
-        booking.get("passenger_count", 0)
-        for booking in existing_bookings
-    )
-
-    if booked_passengers + passenger_count > capacity:
-        available_seats = capacity - booked_passengers
-
+    max_passengers = package.get("max_passengers", 5)
+    if passenger_count > max_passengers:
         raise ValueError(
-            f"Not enough seats available. "
-            f"Only {available_seats} seats remaining."
+            f"Maximum {max_passengers} passengers allowed for this package"
         )
 
     base_price = package.get("base_price", 0)
@@ -293,9 +267,7 @@ def create_booking(
 
         # Customer-selected date
         "travel_date": travel_date,
-
-        # Kept internally for compatibility with the existing system
-        "departure_id": str(departure["_id"]),
+        "end_date": end_date,
 
         "passenger_count": passenger_count,
         "total_amount": total_amount,
@@ -325,7 +297,7 @@ def create_booking(
             or package.get("destination")
         ),
         "travel_date": travel_date,
-        "end_date": departure.get("end_date"),
+        "end_date": end_date,
         "passenger_count": passenger_count,
         "total_amount": total_amount,
         "booking_status": "pending",
@@ -435,6 +407,7 @@ def cancel_booking(
 
     if booking.get("cart_id"):
         release_cart_holds(str(booking["cart_id"]))
+    release_booking_room_hold(booking)
 
     payment_status = str(booking.get("payment_status", "")).lower()
     refund = None

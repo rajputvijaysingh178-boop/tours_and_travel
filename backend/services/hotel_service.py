@@ -6,6 +6,7 @@ from database import (
     hotel_rooms_collection,
     destinations_collection,
 )
+from services.inventory_hold_service import available_room_quantity
 
 
 def _object_id(value: str):
@@ -104,7 +105,15 @@ def add_room(hotel_id, room_data):
     }
 
 
-def get_availability(hotel_id):
+def get_availability(
+    hotel_id,
+    start_date: str | None = None,
+    end_date: str | None = None,
+):
+    if bool(start_date) != bool(end_date):
+        raise ValueError(
+            "Both start_date and end_date are required for availability"
+        )
 
     hotel = hotels_collection.find_one({
         "_id": _object_id(hotel_id)
@@ -123,6 +132,15 @@ def get_availability(hotel_id):
     result = []
 
     for room in rooms:
+        total_units = room.get("total_units", 1)
+        available_quantity = total_units
+        if start_date and end_date:
+            available_quantity = available_room_quantity(
+                room,
+                start_date,
+                end_date,
+            )
+
         result.append({
             "room_id": str(room["_id"]),
             "hotel_id": room["hotel_id"],
@@ -146,10 +164,8 @@ def get_availability(hotel_id):
                 "images",
                 []
             ),
-            "total_units": room.get(
-                "total_units",
-                1
-            ),
+            "total_units": total_units,
+            "available_quantity": available_quantity,
             "status": room.get(
                 "status",
                 "active"

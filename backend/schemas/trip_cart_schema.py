@@ -1,10 +1,12 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 
 
 class TripCartCreateSchema(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     package_id: str
-    travel_date: str
+    travel_date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
     passenger_count: int = Field(
         ge=1,
         le=5
@@ -17,6 +19,7 @@ class HotelSelectionSchema(BaseModel):
 
 class RoomSelectionSchema(BaseModel):
     room_id: str
+    room_quantity: int = Field(ge=1, strict=True)
 
 
 class ActivitiesSelectionSchema(BaseModel):

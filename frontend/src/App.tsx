@@ -137,7 +137,197 @@ function Summary({ cart }: { cart: Cart }) {
     <div className="total"><span>Total</span><strong>{money(p.grand_total)}</strong></div>
   </aside>;
 }
-function Booking() { const { cartId } = useParams(); const navigate = useNavigate(); const [cart, setCart] = useState<Cart>(); const [options, setOptions] = useState<Item[]>([]); const [step, setStep] = useState(0); const [error, setError] = useState(''); useEffect(() => { if (!cartId) return; api.carts.get(cartId).then(setCart).catch(e => setError(e.message)); }, [cartId]); useEffect(() => { if (!cart) return; const loaders = [api.hotels.list, () => api.hotels.rooms(cart.hotel_id), () => api.activities.list(cart.destination_id), () => api.guides.list(cart.destination_id), () => api.vehicles.list(cart.destination_id)]; if (step < 5) loaders[step]().then(setOptions).catch(e => setError(e.message)); }, [cart, step]); const choose = async (item: Item) => { try { const id = idOf(item); const updated = step === 0 ? await api.carts.selectHotel(cartId!, id) : step === 1 ? await api.carts.selectRoom(cartId!, id) : step === 2 ? await api.carts.selectActivities(cartId!, [id]) : step === 3 ? await api.carts.selectGuide(cartId!, id) : await api.carts.selectVehicle(cartId!, id); setCart(updated); setStep(step + 1); } catch (e) { setError((e as Error).message); } }; if (error) return <section className="section page"><ErrorMessage message={error} /></section>; if (!cart) return <Loading />; return <section className="section booking"><div className="booking-main"><div className="progress">{steps.map((label, index) => <button className={index <= step ? 'active' : ''} key={label} onClick={() => index <= step && setStep(index)}><b>{index + 1}</b><span>{label}</span></button>)}</div>{step < 5 ? <><p className="eyebrow">STEP {step + 1} OF 8</p><h1>{steps[step]} for your journey.</h1><p className="lede">Choose what feels right. Your price updates directly from the backend after every selection.</p>{options.length ? <div className="choice-grid">{options.map(item => <button className="choice" key={idOf(item)} onClick={() => choose(item)}><img src={imageOf(item)} alt="" /><span><strong>{titleOf(item)}</strong><small>{item.description || item.location || item.type || 'Available for your dates'}</small></span><b>→</b></button>)}</div> : <Loading />}</> : step === 5 ? <PassengerStep cart={cart} onDone={updated => { setCart(updated); setStep(6); }} /> : step === 6 ? <ReviewStep cart={cart} onDone={() => { api.carts.review(cartId!).then(() => navigate(`/booking/${cartId}/payment`)).catch(e => setError(e.message)); }} /> : <Navigate to={`/booking/${cartId}/payment`} />}</div><Summary cart={cart} /></section>; }
+function Booking() {
+  const { cartId } = useParams();
+  const navigate = useNavigate();
+  const [cart, setCart] = useState<Cart>();
+  const [options, setOptions] = useState<Item[]>([]);
+  const [step, setStep] = useState(0);
+  const [selectedRoomId, setSelectedRoomId] = useState('');
+  const [roomQuantity, setRoomQuantity] = useState(1);
+  const [optionsLoading, setOptionsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!cartId) return;
+    api.carts.get(cartId).then(setCart).catch(e => setError(e.message));
+  }, [cartId]);
+
+  useEffect(() => {
+    if (!cart || step >= 5) return;
+
+    const loaders = [
+      () => api.hotels.list(),
+      () => cart.hotel_id
+        ? api.hotels.rooms(cart.hotel_id, cart.travel_date, cart.end_date)
+        : Promise.resolve([]),
+      () => api.activities.list(cart.destination_id),
+      () => api.guides.list(cart.destination_id),
+      () => api.vehicles.list(cart.destination_id),
+    ];
+    setOptionsLoading(true);
+    loaders[step]()
+      .then(items => {
+        setOptions(items);
+        if (step === 1) {
+          setSelectedRoomId(cart.room_id || '');
+          setRoomQuantity(cart.room_quantity || 1);
+        }
+      })
+      .catch(e => setError(e.message))
+      .finally(() => setOptionsLoading(false));
+  }, [cart, step]);
+
+  const choose = async (item: Item) => {
+    try {
+      const id = idOf(item);
+      const updated = step === 0
+        ? await api.carts.selectHotel(cartId!, id)
+        : step === 2
+          ? await api.carts.selectActivities(cartId!, [id])
+          : step === 3
+            ? await api.carts.selectGuide(cartId!, id)
+            : await api.carts.selectVehicle(cartId!, id);
+      setCart(updated);
+      setStep(step + 1);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const selectRoom = async () => {
+    try {
+      const updated = await api.carts.selectRoom(
+        cartId!,
+        selectedRoomId,
+        roomQuantity,
+      );
+      setCart(updated);
+      setStep(step + 1);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  if (error) return <section className="section page"><ErrorMessage message={error} /></section>;
+  if (!cart) return <Loading />;
+
+  const renderRoomOptions = () => {
+    const selectedRoom = options.find(item => idOf(item) === selectedRoomId);
+    const capacity = Number(selectedRoom?.capacity || 0);
+    const minimumQuantity = capacity > 0
+      ? Math.ceil(cart.passenger_count / capacity)
+      : 1;
+    const availableQuantity = Number(
+      selectedRoom?.available_quantity ?? selectedRoom?.total_units ?? 0,
+    ) + (cart.room_id === selectedRoomId ? cart.room_quantity || 0 : 0);
+
+    return <>
+      {options.length ? <div className="choice-grid">
+        {options.map(item => {
+          const itemCapacity = Number(item.capacity || 0);
+          const itemMinimum = itemCapacity > 0
+            ? Math.ceil(cart.passenger_count / itemCapacity)
+            : 0;
+          const itemAvailable = Number(item.available_quantity ?? item.total_units ?? 0)
+            + (cart.room_id === idOf(item) ? cart.room_quantity || 0 : 0);
+          return <button
+            className={`choice ${selectedRoomId === idOf(item) ? 'active' : ''}`}
+            key={idOf(item)}
+            aria-pressed={selectedRoomId === idOf(item)}
+            onClick={() => {
+              const nextMinimum = itemCapacity > 0
+                ? Math.ceil(cart.passenger_count / itemCapacity)
+                : 1;
+              setSelectedRoomId(idOf(item));
+              setRoomQuantity(
+                cart.room_id === idOf(item) && cart.room_quantity
+                  ? Math.max(nextMinimum, cart.room_quantity)
+                  : nextMinimum,
+              );
+            }}
+          >
+            <img src={imageOf(item)} alt="" />
+            <span>
+              <strong>{titleOf(item)}</strong>
+              <small>{item.description || 'Room type for your stay'}</small>
+              <small>Capacity: {itemCapacity} passengers · {money(item.nightly_rate)} per room/night</small>
+              <small>Available: {itemAvailable} rooms · Minimum: {itemMinimum}</small>
+            </span>
+            <b>{selectedRoomId === idOf(item) ? 'Selected' : '→'}</b>
+          </button>;
+        })}
+      </div> : optionsLoading ? <Loading /> : <p className="muted">No room types are available for these dates.</p>}
+      {selectedRoom && <div className="room-quantity">
+        <label>Number of rooms
+          <select
+            value={roomQuantity}
+            disabled={availableQuantity < minimumQuantity}
+            onChange={event => setRoomQuantity(Number(event.target.value))}
+          >
+            {availableQuantity >= minimumQuantity
+              ? Array.from(
+                { length: availableQuantity - minimumQuantity + 1 },
+                (_, index) => minimumQuantity + index,
+              ).map(quantity => <option key={quantity} value={quantity}>{quantity}</option>)
+              : <option value={minimumQuantity}>No sufficient inventory</option>}
+          </select>
+        </label>
+        {availableQuantity < minimumQuantity && <p className="muted">
+          This room type cannot accommodate your group with the current availability.
+        </p>}
+        <button
+          className="button"
+          disabled={availableQuantity < minimumQuantity}
+          onClick={selectRoom}
+        >
+          Confirm room selection <span>→</span>
+        </button>
+      </div>}
+    </>;
+  };
+
+  return <section className="section booking">
+    <div className="booking-main">
+      <div className="progress">
+        {steps.map((label, index) => <button
+          className={index <= step ? 'active' : ''}
+          key={label}
+          onClick={() => index <= step && setStep(index)}
+        >
+          <b>{index + 1}</b><span>{label}</span>
+        </button>)}
+      </div>
+      {step < 5 ? <>
+        <p className="eyebrow">STEP {step + 1} OF 8</p>
+        <h1>{steps[step]} for your journey.</h1>
+        <p className="lede">Choose what feels right. Your price updates directly from the backend after every selection.</p>
+        {step === 1
+          ? renderRoomOptions()
+          : options.length
+            ? <div className="choice-grid">
+              {options.map(item => <button className="choice" key={idOf(item)} onClick={() => choose(item)}>
+                <img src={imageOf(item)} alt="" />
+                <span><strong>{titleOf(item)}</strong><small>{item.description || item.location || item.type || 'Available for your dates'}</small></span>
+                <b>→</b>
+              </button>)}
+            </div>
+            : optionsLoading
+              ? <Loading />
+              : <p className="muted">No options are available for this step.</p>}
+      </> : step === 5
+        ? <PassengerStep cart={cart} onDone={updated => { setCart(updated); setStep(6); }} />
+        : step === 6
+          ? <ReviewStep cart={cart} onDone={() => {
+            api.carts.review(cartId!)
+              .then(() => navigate(`/booking/${cartId}/payment`))
+              .catch(e => setError(e.message));
+          }} />
+          : <Navigate to={`/booking/${cartId}/payment`} />}
+    </div>
+    <Summary cart={cart} />
+  </section>;
+}
 function PassengerStep({ cart, onDone }: { cart: Cart; onDone: (cart: Cart) => void }) { const [passengers, setPassengers] = useState<Passenger[]>(cart.passengers?.length ? cart.passengers : Array.from({ length: cart.passenger_count }, () => ({ name: '', age: 18, gender: '', phone: '', email: '' }))); const update = (index: number, key: keyof Passenger, value: string | number) => setPassengers(all => all.map((p, i) => i === index ? { ...p, [key]: value } : p)); return <><p className="eyebrow">STEP 6 OF 8</p><h1>Who is coming along?</h1><p className="lede">Add the details exactly as they should appear on your booking.</p><div className="passengers">{passengers.map((p, i) => <div className="passenger" key={i}><h3>Traveller {i + 1}</h3><input placeholder="Full name" value={p.name} onChange={e => update(i, 'name', e.target.value)} /><div className="field-row"><input type="number" min="1" placeholder="Age" value={p.age} onChange={e => update(i, 'age', Number(e.target.value))} /><input placeholder="Gender" value={p.gender} onChange={e => update(i, 'gender', e.target.value)} /></div><input type="tel" placeholder="Phone" value={p.phone} onChange={e => update(i, 'phone', e.target.value)} /><input type="email" placeholder="Email" value={p.email} onChange={e => update(i, 'email', e.target.value)} /></div>)}</div><button className="button" onClick={() => api.carts.passengers(cart.cart_id, passengers).then(onDone)}>Continue to review <span>→</span></button></>; }
 function ReviewStep({ cart, onDone }: { cart: Cart; onDone: () => void }) {
   return <>
@@ -147,6 +337,7 @@ function ReviewStep({ cart, onDone }: { cart: Cart; onDone: () => void }) {
     <div className="review-box">
       <div><strong>Travel dates</strong><span>{cart.travel_date} – {cart.end_date}</span></div>
       <div><strong>Travellers</strong><span>{cart.passenger_count}</span></div>
+      {cart.room_id && <div><strong>Rooms</strong><span>{cart.room_quantity}</span></div>}
       <div><strong>Passenger details</strong><span>{cart.passengers?.map(p => p.name).join(', ')}</span></div>
       <div><strong>Grand total</strong><span>{money(cart.price_snapshot?.grand_total)}</span></div>
     </div>

@@ -96,6 +96,7 @@ def select_room_route(
             cart_id,
             current_user["id"],
             data.room_id,
+            data.room_quantity,
         )
     except ValueError as e:
         raise HTTPException(
